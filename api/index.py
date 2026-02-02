@@ -5,40 +5,49 @@ from urllib.parse import urlparse, parse_qs
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Ambil parameter domain dari URL
-        query = parse_qs(urlparse(self.path).query)
+        # Ambil parameter dari URL
+        parsed_path = urlparse(self.path)
+        query = parse_qs(parsed_path.query)
         target = query.get('domain', [None])[0]
 
         if not target:
             self.send_response(400)
+            self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(b"Domain parameter is required")
+            self.wfile.write(json.dumps({"error": "Domain is required"}).encode())
             return
 
-        # Ambil data dari crt.sh
+        # Request ke crt.sh
         url = f"https://crt.sh/?q=%.{target}&output=json"
         
         try:
-            response = requests.get(url, timeout=15)
-            data = response.json()
+            # Timeout ditambah biar nggak gampang mati
+            response = requests.get(url, timeout=20)
             
-            # Cleaning data (ambil unique subdomains saja)
+            if response.status_code != 200:
+                raise Exception("crt.sh is busy")
+
+            data = response.json()
             subdomains = set()
             for entry in data:
-                # crt.sh seringkali punya multiple domains dipisah \n
                 names = entry['name_value'].split('\n')
                 for name in names:
-                    if name.endswith(target) and "*" not in name:
-                        subdomains.add(name)
+                    # Filter: hapus wildcard dan pastikan domain cocok
+                    clean_name = name.replace("*.", "")
+                    if clean_name.endswith(target):
+                        subdomains.add(clean_name.lower())
 
+            # Response sukses
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*') # Biar bisa dipanggil dari frontend
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             
-            self.wfile.write(json.dumps(sorted(list(subdomains))).encode())
+            result = sorted(list(subdomains))
+            self.wfile.write(json.dumps(result).encode())
         
         except Exception as e:
             self.send_response(500)
+            self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(str(e).encode())
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
