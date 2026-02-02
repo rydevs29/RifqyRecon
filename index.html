@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RifqyRecon - Subdomain Finder</title>
+    <style>
+        body { background: #0d1117; color: #58a6ff; font-family: 'Courier New', monospace; padding: 20px; }
+        .container { max-width: 600px; margin: auto; border: 1px solid #30363d; padding: 20px; border-radius: 8px; }
+        input { background: #161b22; border: 1px solid #30363d; color: white; padding: 10px; width: 70%; }
+        button { background: #238636; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
+        #results { margin-top: 20px; white-space: pre-wrap; color: #d1d5db; border-top: 1px solid #30363d; padding-top: 10px; }
+        .loading { color: orange; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>RifqyRecon v1.0</h2>
+        <input type="text" id="domain" placeholder="example.com">
+        <button onclick="scan()">Scan</button>
+        <div id="status"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function scan() {
+            const domain = document.getElementById('domain').value;
+            const resDiv = document.getElementById('results');
+            const status = document.getElementById('status');
+            
+            if (!domain) return alert("Masukkan domain!");
+
+            status.innerHTML = "<p class='loading'>Scanning certificate logs... please wait.</p>";
+            resDiv.innerText = "";
+
+            try {
+                const response = await fetch(`/api?domain=${domain}`);
+                const data = await response.json();
+                
+                status.innerHTML = `<p style="color: #3fb950;">Found ${data.length} subdomains:</p>`;
+                resDiv.innerText = data.join('\n');
+            } catch (err) {
+                status.innerHTML = "<p style="color: #f85149;">Error fetching data.</p>";
+            }
+        }
+    </script>
+</body>
+</html>
